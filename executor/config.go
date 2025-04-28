@@ -41,8 +41,8 @@ func (c *Config) Validate() error {
 			return errors.New("working directory is not a directory")
 		}
 	}
-	if c.Limit < 0 {
-		return errors.New("limit cannot be negative")
+	if c.Limit <= 0 {
+		return errors.New("limit cannot be zero or negative")
 	}
 	if c.Offset < 0 {
 		return errors.New("offset cannot be negative")

@@ -26,7 +26,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var cfg executor.Config
+var (
+	cfg       executor.Config
+	isVerbose bool
+)
 
 const (
 	defaultTimeoutH    = 24
@@ -44,8 +47,8 @@ examples and usage of using your application. For example:
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return logger.Initialize()
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		logger.Initialize(isVerbose)
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := executor.NewSystemContext()
@@ -86,7 +89,7 @@ func init() {
 		&cfg.Command,
 		"command",
 		"c",
-		"echo {{ .limit }} {{ .offset }}",
+		"echo {{ .offset | sum .batchSize  }}={{ .limit }} ",
 		"Command to execute (evaluated as Go template with variables: cmd, offset, batchSize, limit)",
 	)
 
@@ -137,4 +140,8 @@ func init() {
 	)
 
 	rootCmd.Flags().StringVar(&cfg.LogDir, "log-dir", wd, "Directory to store logs")
+
+	rootCmd.
+		PersistentFlags().
+		BoolVarP(&isVerbose, "verbose", "v", false, "Changes logger to verbose")
 }

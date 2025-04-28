@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
+	"os/exec"
 	"sync"
 	"time"
 
@@ -39,21 +39,40 @@ func (e *ExecRequest) getVarMap() map[string]any {
 
 func processor(wg *sync.WaitGroup, requests <-chan *ExecRequest) {
 	log := logger.Get("Processor")
+
 	for r := range requests {
-		rLog := log.With(zap.Any("request", r))
+		rLog := log.With(
+			zap.Any("request", r),
+		)
+
+		rLog.Debug("received request for processing")
+
 		cmd, err := template.EvaluateTemplate(r.Command, r.getVarMap())
 		if err != nil {
 			rLog.Error(
-				"failed to evaluate template on given command",
+				"failed to evaluate command template",
 				zap.Error(err),
+				zap.String("raw_command", r.Command),
 			)
 			continue
 		}
-		args := r.ShellArgs
-		args = append(args, cmd)
+
+		rLog.Debug("successfully evaluated command template", zap.String("evaluated_command", cmd))
+
+		args := append(r.ShellArgs, cmd)
 		ctx, cancel := context.WithTimeout(r.RootCtx, r.timeout)
+
 		name := fmt.Sprintf("exec-%d-%d", r.Offset, r.BatchSize)
 		out := logger.NewFileWriter(name, r.LogRoot)
+
+		rLog.Debug(
+			"spawning process",
+			zap.String("process_name", name),
+			zap.String("shell", r.Shell),
+			zap.Strings("args", args),
+			zap.String("working_directory", r.WorkingDirectory),
+		)
+
 		err = spawnProcess(
 			ctx,
 			name,
@@ -62,10 +81,20 @@ func processor(wg *sync.WaitGroup, requests <-chan *ExecRequest) {
 			r.WorkingDirectory,
 			out,
 		)
-		cancel()
+
 		if err != nil {
-			rLog.Error("failed to complete request")
+			rLog.Error(
+				"process execution failed",
+				zap.Error(err),
+				zap.String("process_name", name),
+			)
+		} else {
+			rLog.Info(
+				"process execution completed successfully",
+				zap.String("process_name", name),
+			)
 		}
+		cancel()
 		wg.Done()
 	}
 }
@@ -78,56 +107,64 @@ func spawnProcess(
 	wd string,
 	out io.Writer,
 ) error {
-	log := logger.Get("Spawner." + name)
-	stdout, stderr, err := buildOutputPipes(out)
+	log := logger.Get("Spawner."+name).With(
+		zap.String("program", program),
+		zap.Strings("args", args),
+		zap.String("working_directory", wd),
+	)
+
+	log.Debug("starting process setup")
+
+	log.Debug("attempting to start process")
+	proc := exec.CommandContext(ctx, program, args...)
+
+	err := connectPipes(proc, out)
 	if err != nil {
+		log.Error("failed to build output pipes", zap.Error(err))
 		return err
 	}
-	attr := &os.ProcAttr{
-		Dir: wd,
-		Env: os.Environ(),
-		Files: []*os.File{
-			os.Stdin,
-			stdout,
-			stderr,
-		},
-	}
-	proc, err := os.StartProcess(program, args, attr)
+
+	err = proc.Start()
 	if err != nil {
+		log.Error("failed to start process", zap.Error(err))
 		return err
 	}
+
+	log.Info("process started successfully", zap.Int("pid", proc.Process.Pid))
+
 	sigChan := make(chan int)
 	go func() {
-		stat, err := proc.Wait()
+		stat, err := proc.Process.Wait()
 		if err != nil {
-			log.Error("spawner failed to wait for process's exit", zap.Error(err))
+			log.Error("failed to wait for process exit", zap.Error(err))
 			sigChan <- -1
 			return
 		}
-		sigChan <- stat.ExitCode()
+		exitCode := stat.ExitCode()
+		log.Debug("process exited", zap.Int("exit_code", exitCode))
+		sigChan <- exitCode
 	}()
 
 	select {
 	case exitCode := <-sigChan:
 		if exitCode != 0 {
-			log.Error("process exited with status code!=0", zap.Int("code", exitCode))
+			log.Error("process exited with non-zero status", zap.Int("exit_code", exitCode))
+		} else {
+			log.Info("process exited cleanly", zap.Int("exit_code", exitCode))
 		}
 		return nil
-	case <-ctx.Done():
-		log.Warn("process timeout reached")
-		return proc.Kill()
 	}
 }
 
-func buildOutputPipes(out io.Writer) (*os.File, *os.File, error) {
+func connectPipes(proc *exec.Cmd, out io.Writer) error {
 	log := logger.Get("OutputPipes")
-	oR, oW, oErr := os.Pipe()
+	oR, oErr := proc.StdoutPipe()
 	if oErr != nil {
-		return nil, nil, oErr
+		return oErr
 	}
-	eR, eW, eErr := os.Pipe()
+	eR, eErr := proc.StderrPipe()
 	if eErr != nil {
-		return nil, nil, eErr
+		return eErr
 	}
 	go func() {
 		_, err := io.Copy(out, oR)
@@ -141,5 +178,5 @@ func buildOutputPipes(out io.Writer) (*os.File, *os.File, error) {
 			log.Error("failed to write stderr to file", zap.Error(err))
 		}
 	}()
-	return oW, eW, nil
+	return nil
 }

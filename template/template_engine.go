@@ -18,6 +18,9 @@ func buildFuncMap() template.FuncMap {
 		"b64enc": func(s string) string {
 			return base64.StdEncoding.EncodeToString([]byte(s))
 		},
+		"sum": func(a int, b int) int {
+			return a + b
+		},
 		"b64dec":    b64dec,
 		"toUpper":   strings.ToUpper,
 		"toLower":   strings.ToLower,

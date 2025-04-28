@@ -33,7 +33,7 @@ func StartExecution(ctx context.Context, cfg Config) error {
 		offset := i
 		limit := stepSize
 		if offset+limit > end {
-			limit = (end - (offset + limit))
+			limit = ((offset + limit) - end)
 		}
 		reqChannel <- &ExecRequest{
 			Command:   cfg.Command,
