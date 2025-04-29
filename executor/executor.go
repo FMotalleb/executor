@@ -28,12 +28,12 @@ func StartExecution(ctx context.Context, cfg Config) error {
 	begin := cfg.Offset
 	stepSize := cfg.BatchSize
 	end := cfg.Limit
-	for i := begin; i <= end; i += stepSize {
+	for i := begin; i < end; i += stepSize {
 		wg.Add(1)
 		offset := i
 		limit := stepSize
 		if offset+limit > end {
-			limit = ((offset + limit) - end)
+			limit = end - offset
 		}
 		reqChannel <- &ExecRequest{
 			Command:   cfg.Command,
