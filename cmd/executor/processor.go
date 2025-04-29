@@ -98,8 +98,9 @@ func process(log *zap.Logger, r *ExecRequest, wg *sync.WaitGroup) {
 		return
 	}
 
-	args, ctx, name, out := prepareArgs(rLog, cmd, r)
-
+	args, name, out := prepareArgs(rLog, cmd, r)
+	ctx, cancel := context.WithTimeout(r.rootCtx, r.Timeout)
+	defer cancel()
 	rLog.Debug(
 		"spawning process",
 		zap.String("process_name", name),
@@ -131,12 +132,11 @@ func process(log *zap.Logger, r *ExecRequest, wg *sync.WaitGroup) {
 	}
 }
 
-func prepareArgs(rLog *zap.Logger, cmd string, r *ExecRequest) ([]string, context.Context, string, io.Writer) {
+func prepareArgs(rLog *zap.Logger, cmd string, r *ExecRequest) ([]string, string, io.Writer) {
 	rLog.Debug("successfully evaluated command template", zap.String("evaluated_command", cmd))
 	args := r.ShellArgs
 	args = append(args, cmd)
-	ctx, cancel := context.WithTimeout(r.rootCtx, r.Timeout)
-	defer cancel()
+
 	name := fmt.Sprintf("exec-%d-%d", r.Offset, r.BatchSize)
 	var out io.Writer
 	if r.logToErr {
@@ -144,7 +144,7 @@ func prepareArgs(rLog *zap.Logger, cmd string, r *ExecRequest) ([]string, contex
 	} else {
 		out = logger.NewFileWriter(name, r.logRoot)
 	}
-	return args, ctx, name, out
+	return args, name, out
 }
 
 func spawnProcess(
@@ -172,16 +172,8 @@ func spawnProcess(
 		return err
 	}
 
-	err = proc.Start()
-	if err != nil {
-		log.Error("failed to start process", zap.Error(err))
-		return err
-	}
-
-	log.Info("process started successfully", zap.Int("pid", proc.Process.Pid))
-
 	sigChan := make(chan int)
-	go startSubProcess(proc, log, sigChan)
+	go spawnSubprocess(proc, log, sigChan)
 
 	if ec := <-sigChan; ec != 0 {
 		log.Error("process exited with non-zero status", zap.Int("exit_code", ec))
@@ -191,7 +183,16 @@ func spawnProcess(
 	return nil
 }
 
-func startSubProcess(proc *exec.Cmd, log *zap.Logger, sigChan chan int) {
+func spawnSubprocess(proc *exec.Cmd, log *zap.Logger, sigChan chan int) {
+	err := proc.Start()
+	if err != nil {
+		log.Error("failed to start process", zap.Error(err))
+		sigChan <- 1
+		return
+	}
+
+	log.Info("process started successfully", zap.Int("pid", proc.Process.Pid))
+
 	stat, err := proc.Process.Wait()
 	if err != nil {
 		log.Error("failed to wait for process exit", zap.Error(err))
