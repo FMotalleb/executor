@@ -40,17 +40,15 @@ const (
 // rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
 	Use:   "executor",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+	Short: "A CLI tool to orchestrate parallel batch processing",
+	Long: `Executor is a command-line application designed to orchestrate 
+and execute parallel processes with configurable batch size, offset, 
+limit, and custom commands. It provides flexibility for managing 
+multi-process workflows efficiently.`,
+	PersistentPreRun: func(_ *cobra.Command, _ []string) {
 		logger.Initialize(isVerbose)
 	},
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, _ []string) error {
 		ctx := executor.NewSystemContext()
 		return executor.StartExecution(ctx, cfg)
 	},

@@ -7,9 +7,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var (
-	logger *zap.Logger
-)
+var logger *zap.Logger
 
 func Get(name string) *zap.Logger {
 	return logger.Named(name)

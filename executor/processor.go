@@ -151,15 +151,12 @@ func spawnProcess(
 		sigChan <- exitCode
 	}()
 
-	select {
-	case exitCode := <-sigChan:
-		if exitCode != 0 {
-			log.Error("process exited with non-zero status", zap.Int("exit_code", exitCode))
-		} else {
-			log.Info("process exited cleanly", zap.Int("exit_code", exitCode))
-		}
-		return nil
+	if ec := <-sigChan; ec != 0 {
+		log.Error("process exited with non-zero status", zap.Int("exit_code", ec))
+		return fmt.Errorf("process exited with non-zero status: %d", ec)
 	}
+	log.Info("process exited cleanly", zap.Int("exit_code", 0))
+	return nil
 }
 
 func connectPipes(proc *exec.Cmd, out io.Writer) error {

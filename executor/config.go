@@ -60,7 +60,7 @@ func (c *Config) Validate() error {
 	if c.Parallel <= 0 {
 		return errors.New("parallel must be greater than zero")
 	}
-	if c.LogDir != "" {
+	if !c.LogToStdErr && c.LogDir != "" {
 		info, err := os.Stat(c.LogDir)
 		if err != nil {
 			return fmt.Errorf("log directory does not exist: %w", err)
