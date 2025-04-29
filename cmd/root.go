@@ -87,7 +87,7 @@ func init() {
 		&cfg.Command,
 		"command",
 		"c",
-		"echo {{ .offset | sum .batchSize  }}={{ .limit }} ",
+		"echo {{ .offset | sum .batchSize  }}={{ .limit }}",
 		"Command to execute (evaluated as Go template with variables: cmd, offset, batchSize, limit)",
 	)
 
