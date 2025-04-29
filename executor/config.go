@@ -21,7 +21,8 @@ type Config struct {
 	Timeout  time.Duration
 	Parallel int
 
-	LogDir string
+	LogDir      string
+	LogToStdErr bool
 }
 
 // Validate checks the Config for any invalid or missing fields.

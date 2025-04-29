@@ -48,6 +48,8 @@ func StartExecution(ctx context.Context, cfg Config) error {
 
 			RootCtx: ctx,
 			timeout: cfg.Timeout,
+
+			LogToErr: cfg.LogToStdErr,
 		}
 	}
 

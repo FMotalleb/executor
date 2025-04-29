@@ -16,8 +16,7 @@ func Get(name string) *zap.Logger {
 }
 
 func Initialize(isVerbose bool) {
-
-	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig := zap.NewDevelopmentEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
 	lvl := zap.InfoLevel
 	if isVerbose {

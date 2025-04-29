@@ -24,8 +24,9 @@ type ExecRequest struct {
 	ShellArgs        []string
 	WorkingDirectory string
 
-	timeout time.Duration
-	LogRoot string
+	timeout  time.Duration
+	LogRoot  string
+	LogToErr bool
 }
 
 func (e *ExecRequest) getVarMap() map[string]any {
@@ -63,7 +64,12 @@ func processor(wg *sync.WaitGroup, requests <-chan *ExecRequest) {
 		ctx, cancel := context.WithTimeout(r.RootCtx, r.timeout)
 
 		name := fmt.Sprintf("exec-%d-%d", r.Offset, r.BatchSize)
-		out := logger.NewFileWriter(name, r.LogRoot)
+		var out io.Writer
+		if r.LogToErr {
+			out = logger.NewStdErrWriter(name)
+		} else {
+			out = logger.NewFileWriter(name, r.LogRoot)
+		}
 
 		rLog.Debug(
 			"spawning process",

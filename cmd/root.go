@@ -140,6 +140,7 @@ func init() {
 	)
 
 	rootCmd.Flags().StringVar(&cfg.LogDir, "log-dir", wd, "Directory to store logs")
+	rootCmd.Flags().BoolVar(&cfg.LogToStdErr, "log-stderr", false, "Log directly to stderr instead of file")
 
 	rootCmd.
 		PersistentFlags().
