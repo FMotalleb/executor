@@ -21,7 +21,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/FMotalleb/executor/executor"
+	"github.com/FMotalleb/executor/cmd/executor"
 	"github.com/FMotalleb/executor/logger"
 	"github.com/spf13/cobra"
 )
