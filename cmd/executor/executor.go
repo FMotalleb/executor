@@ -9,6 +9,26 @@ import (
 	"go.uber.org/zap"
 )
 
+// StartExecution initializes and manages the execution of tasks based on the provided configuration.
+// It validates the configuration, spawns worker goroutines, and processes tasks in batches.
+//
+// Parameters:
+//   - ctx: A context.Context object used to manage the lifecycle of the execution process.
+//   - cfg: A Config object containing the execution parameters such as parallelism, batch size, command, and more.
+//
+// Returns:
+//   - error: Returns an error if the configuration is invalid or if the execution is prematurely terminated.
+//
+// Behavior:
+//   - Validates the provided configuration. If invalid, logs the error and terminates.
+//   - Creates a channel for execution requests and spawns worker goroutines based on the configured parallelism.
+//   - Processes tasks in batches, sending execution requests to the worker goroutines.
+//   - Monitors the context for cancellation and ensures proper cleanup of resources.
+//   - Waits for all worker goroutines to complete before returning.
+//
+// Notes:
+//   - The function ensures that the request channel is closed properly after use.
+//   - If the context is canceled before completion, an error is returned, and the process is terminated.
 func StartExecution(ctx context.Context, cfg Config) error {
 	log := logger.Get("ExecutionController")
 	if err := cfg.Validate(); err != nil {
@@ -44,12 +64,12 @@ func StartExecution(ctx context.Context, cfg Config) error {
 			ShellArgs: cfg.ShellArgs,
 
 			WorkingDirectory: cfg.WorkingDirectory,
-			LogRoot:          cfg.LogDir,
+			logRoot:          cfg.LogDir,
 
-			RootCtx: ctx,
-			timeout: cfg.Timeout,
+			rootCtx: ctx,
+			Timeout: cfg.Timeout,
 
-			LogToErr: cfg.LogToStdErr,
+			logToErr: cfg.LogToStdErr,
 		}
 	}
 
@@ -63,6 +83,7 @@ func StartExecution(ctx context.Context, cfg Config) error {
 	}
 }
 
+// asChan is here to convert a function into channel signal (like wg.Wait()) in order to be able to use select on it.
 func asChan(fn func()) <-chan any {
 	ch := make(chan any)
 	go func() {

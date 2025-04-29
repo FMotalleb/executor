@@ -42,7 +42,7 @@ Command templates support Go template syntax and include:
 - `.limit` → total limit
 - `sum` → built-in function for arithmetic
 
-You can see more builtin functions at Template section
+You can see more builtin functions at Template section.
 
 ---
 
