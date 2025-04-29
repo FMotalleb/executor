@@ -59,8 +59,8 @@ func processor(wg *sync.WaitGroup, requests <-chan *ExecRequest) {
 		}
 
 		rLog.Debug("successfully evaluated command template", zap.String("evaluated_command", cmd))
-
-		args := append(r.ShellArgs, cmd)
+		args := r.ShellArgs
+		args = append(args, cmd)
 		ctx, cancel := context.WithTimeout(r.RootCtx, r.timeout)
 
 		name := fmt.Sprintf("exec-%d-%d", r.Offset, r.BatchSize)
