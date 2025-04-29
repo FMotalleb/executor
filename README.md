@@ -52,7 +52,7 @@ You can see more builtin functions at Template section
 executor --log-stderr --verbose
 ```
 
-The default behavior is to log into files with name `exec-'begin'-'end'.log`
+The default behavior is to log into files with name `exec-<begin>-<end>.log`
 Using --log-stderr flag you can see logs of each processor in stderr
 
 Please note that default logging system is pretty chatty if you have seen a bug
@@ -85,7 +85,7 @@ Please note that default logging system is pretty chatty if you have seen a bug
 ### 📦 Using `go install`
 
 ```bash
-go install github.com/your-username/executor@latest
+go install github.com/FMotalleb/executor@latest
 ```
 
 Make sure `$GOPATH/bin` is in your `$PATH`.
@@ -93,7 +93,7 @@ Make sure `$GOPATH/bin` is in your `$PATH`.
 ### 🧪 Build from source
 
 ```bash
-git clone https://github.com/your-username/executor.git
+git clone https://github.com/FMotalleb/executor.git
 cd executor
 go build -o executor
 ./executor --help

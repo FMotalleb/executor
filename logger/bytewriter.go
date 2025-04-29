@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"bytes"
 	"io"
 	"os"
 	"path/filepath"
@@ -47,9 +48,17 @@ func NewStdErrWriter(name string) io.Writer {
 }
 
 func (b *FileWriter) Write(p []byte) (n int, err error) {
-	buff := p
-	if b.hasNamePrefix {
-		buff = append([]byte(b.name+"|> "), buff...)
+	lines := bytes.Split(p, []byte("\n"))
+	var buff []byte
+	for _, line := range lines {
+		if len(line) == 0 {
+			continue
+		}
+		if b.hasNamePrefix {
+			buff = append(buff, []byte(b.name+"|> ")...)
+		}
+		buff = append(buff, line...)
+		buff = append(buff, '\n')
 	}
 	if n, err := b.output.Write(buff); err != nil {
 		return n, err
