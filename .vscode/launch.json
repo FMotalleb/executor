@@ -12,7 +12,8 @@
       "program": "${workspaceFolder}",
       "args": [
         "--limit=1500",
-        "-v"
+        "-v",
+        "--log-stderr"
       ]
     }
   ]
