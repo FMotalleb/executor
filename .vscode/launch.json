@@ -13,7 +13,9 @@
       "args": [
         "--limit=1500",
         "-v",
-        "--log-stderr"
+        "--log-stderr",
+        "--command=bash",
+        "--stdin=echo {{ .offset }}",
       ]
     }
   ]

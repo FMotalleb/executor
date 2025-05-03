@@ -62,20 +62,22 @@ Please note that default logging system is pretty chatty if you have seen a bug
 ## 🔧 Flags
 
 ```bash
-  --batch-size int             Batch size for processing (default 1000)
-  -c, --command string         Command to execute (Go template with vars: offset, batchSize, limit) 
+  --batch-size int            Batch size for processing (default 1000)
+  -c, --command string        Command to execute (Go template with vars: offset, batchSize, limit) 
                               (default "echo {{ .offset | sum .batchSize }}={{ .limit }}")
-  -l, --limit int              Total number of items to process
-  -o, --offset int             Starting offset
-  -p, --processors int         Number of parallel executions (default 10)
-  --timeout duration           Timeout per command (default 24h0m0s)
-  --shell string               Shell to execute commands with (default "/bin/sh")
-  --shell-args strings         Shell arguments (default: [-c])
-  -w, --working-directory      Working directory (default: current directory)
-  --log-dir string             Log file directory (default: current directory)
-  --log-stderr                 Stream logs to stderr instead of files
-  -v, --verbose                Enables verbose logging
-  -h, --help                   Display help
+  --stdin string              Stdin passed to process (Go template with vars: offset, batchSize, limit) 
+                              (default "")
+  -l, --limit int             Total number of items to process
+  -o, --offset int            Starting offset
+  -p, --processors int        Number of parallel executions (default 10)
+  --timeout duration          Timeout per command (default 24h0m0s)
+  --shell string              Shell to execute commands with (default "/bin/sh")
+  --shell-args strings        Shell arguments (default: [-c])
+  -w, --working-directory     Working directory (default: current directory)
+  --log-dir string            Log file directory (default: current directory)
+  --log-stderr                Stream logs to stderr instead of files
+  -v, --verbose               Enables verbose logging
+  -h, --help                  Display help
 ```
 
 ---

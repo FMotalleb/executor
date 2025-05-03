@@ -32,6 +32,7 @@ type ExecRequest struct {
 	rootCtx context.Context
 
 	Command   string
+	StdIn     string
 	Offset    int
 	BatchSize int
 
@@ -44,7 +45,7 @@ type ExecRequest struct {
 	logToErr bool
 }
 
-// getVarMap to be used in template engine
+// getVarMap to be used in template engine.
 func (e *ExecRequest) getVarMap() map[string]any {
 	return map[string]any{
 		"offset":    e.Offset,
@@ -88,17 +89,10 @@ func process(log *zap.Logger, r *ExecRequest, wg *sync.WaitGroup) {
 
 	rLog.Debug("received request for processing")
 
-	cmd, err := template.EvaluateTemplate(r.Command, r.getVarMap())
+	name, args, stdin, out, err := prepareArgs(rLog, r)
 	if err != nil {
-		rLog.Error(
-			"failed to evaluate command template",
-			zap.Error(err),
-			zap.String("raw_command", r.Command),
-		)
 		return
 	}
-
-	args, name, out := prepareArgs(rLog, cmd, r)
 	ctx, cancel := context.WithTimeout(r.rootCtx, r.Timeout)
 	defer cancel()
 	rLog.Debug(
@@ -115,6 +109,7 @@ func process(log *zap.Logger, r *ExecRequest, wg *sync.WaitGroup) {
 		r.Shell,
 		args,
 		r.WorkingDirectory,
+		stdin,
 		out,
 	)
 
@@ -132,7 +127,26 @@ func process(log *zap.Logger, r *ExecRequest, wg *sync.WaitGroup) {
 	}
 }
 
-func prepareArgs(rLog *zap.Logger, cmd string, r *ExecRequest) ([]string, string, io.Writer) {
+func prepareArgs(rLog *zap.Logger, r *ExecRequest) (string, []string, string, io.Writer, error) {
+	cmd, err := template.EvaluateTemplate(r.Command, r.getVarMap())
+	if err != nil {
+		rLog.Error(
+			"failed to evaluate command template",
+			zap.Error(err),
+			zap.String("raw_command", r.Command),
+		)
+		return "", nil, "", nil, err
+	}
+	stdinVal, err := template.EvaluateTemplate(r.StdIn, r.getVarMap())
+	if err != nil {
+		rLog.Error(
+			"failed to evaluate command template",
+			zap.Error(err),
+			zap.String("raw_command", r.Command),
+		)
+		return "", nil, "", nil, err
+	}
+
 	rLog.Debug("successfully evaluated command template", zap.String("evaluated_command", cmd))
 	args := r.ShellArgs
 	args = append(args, cmd)
@@ -144,7 +158,7 @@ func prepareArgs(rLog *zap.Logger, cmd string, r *ExecRequest) ([]string, string
 	} else {
 		out = logger.NewFileWriter(name, r.logRoot)
 	}
-	return args, name, out
+	return name, args, stdinVal, out, nil
 }
 
 func spawnProcess(
@@ -153,6 +167,7 @@ func spawnProcess(
 	program string,
 	args []string,
 	wd string,
+	stdin string,
 	out io.Writer,
 ) error {
 	log := logger.Get("Spawner."+name).With(
@@ -166,7 +181,7 @@ func spawnProcess(
 	log.Debug("attempting to start process")
 	proc := exec.CommandContext(ctx, program, args...)
 
-	err := connectPipes(proc, out)
+	err := connectPipes(proc, out, stdin)
 	if err != nil {
 		log.Error("failed to build output pipes", zap.Error(err))
 		return err
@@ -204,7 +219,7 @@ func spawnSubprocess(proc *exec.Cmd, log *zap.Logger, sigChan chan int) {
 	sigChan <- exitCode
 }
 
-func connectPipes(proc *exec.Cmd, out io.Writer) error {
+func connectPipes(proc *exec.Cmd, out io.Writer, stdin string) error {
 	log := logger.Get("OutputPipes")
 	oR, oErr := proc.StdoutPipe()
 	if oErr != nil {
@@ -226,5 +241,26 @@ func connectPipes(proc *exec.Cmd, out io.Writer) error {
 			log.Error("failed to write stderr to file", zap.Error(err))
 		}
 	}()
+	iW, iErr := proc.StdinPipe()
+
+	if iErr != nil {
+		return iErr
+	}
+	go func() {
+		data := []byte(stdin)
+		mustWrite := len(data)
+		totalWrites := 0
+		for totalWrites < mustWrite {
+			n, err := iW.Write(data[totalWrites:mustWrite])
+			if err != nil {
+				log.Error("failed to write stdin to process", zap.Error(err))
+			}
+			totalWrites += n
+		}
+		if err := iW.Close(); err != nil {
+			log.Error("failed to close stdin", zap.Error(err))
+		}
+	}()
+
 	return nil
 }

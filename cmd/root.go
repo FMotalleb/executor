@@ -88,7 +88,13 @@ func init() {
 		"command",
 		"c",
 		"echo {{ .offset | sum .batchSize  }}={{ .limit }}",
-		"Command to execute (evaluated as Go template with variables: cmd, offset, batchSize, limit)",
+		"Command to execute (evaluated as Go template with variables: offset, batchSize, limit)",
+	)
+	rootCmd.Flags().StringVar(
+		&cfg.StdIn,
+		"stdin",
+		"",
+		"Stdin of the command, (evaluated as Go template with variables: offset, batchSize, limit)",
 	)
 
 	rootCmd.Flags().StringVarP(

@@ -13,6 +13,7 @@ type Config struct {
 
 	Command          string
 	WorkingDirectory string
+	StdIn            string
 
 	Limit     int
 	Offset    int

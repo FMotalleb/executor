@@ -57,6 +57,7 @@ func StartExecution(ctx context.Context, cfg Config) error {
 		}
 		reqChannel <- &ExecRequest{
 			Command:   cfg.Command,
+			StdIn:     cfg.StdIn,
 			Offset:    offset,
 			BatchSize: limit,
 
