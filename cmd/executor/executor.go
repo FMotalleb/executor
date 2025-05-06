@@ -9,26 +9,27 @@ import (
 	"go.uber.org/zap"
 )
 
-// StartExecution initializes and manages the execution of tasks based on the provided configuration.
-// It validates the configuration, spawns worker goroutines, and processes tasks in batches.
+// StartExecution handles the initialization and management of task execution based on the provided configuration.
+// It performs validation, creates worker goroutines, and processes tasks in batches until completion or cancellation.
 //
 // Parameters:
-//   - ctx: A context.Context object used to manage the lifecycle of the execution process.
-//   - cfg: A Config object containing the execution parameters such as parallelism, batch size, command, and more.
+// - ctx: A context to control the lifecycle of the execution, including cancellation or timeout.
+// - cfg: A Config object specifying execution parameters such as parallelism, batch size, retry limits, and more.
 //
 // Returns:
-//   - error: Returns an error if the configuration is invalid or if the execution is prematurely terminated.
+// - error: If there is a configuration validation failure or premature termination due to context cancellation.
 //
 // Behavior:
-//   - Validates the provided configuration. If invalid, logs the error and terminates.
-//   - Creates a channel for execution requests and spawns worker goroutines based on the configured parallelism.
-//   - Processes tasks in batches, sending execution requests to the worker goroutines.
-//   - Monitors the context for cancellation and ensures proper cleanup of resources.
-//   - Waits for all worker goroutines to complete before returning.
+// - Validates the provided Config object to ensure correctness before execution starts.
+// - Sets up a channel for execution requests and spawns a number of worker goroutines based on the configured parallelism.
+// - Divides tasks into batches, creating and sending ExecRequest objects through the channel.
+// - Continuously monitors the provided context for cancellation and performs cleanup if triggered.
+// - Waits for all worker goroutines to finish execution before returning.
+// - Ensures graceful shutdown by properly closing the request channel and synchronizing goroutines.
 //
 // Notes:
-//   - The function ensures that the request channel is closed properly after use.
-//   - If the context is canceled before completion, an error is returned, and the process is terminated.
+// - If the context is canceled before completion, the function terminates and returns an appropriate error.
+// - Logging is used to record the process lifecycle, including errors and successful completion.
 func StartExecution(ctx context.Context, cfg Config) error {
 	log := logger.Get("ExecutionController")
 	if err := cfg.Validate(); err != nil {
@@ -60,6 +61,8 @@ func StartExecution(ctx context.Context, cfg Config) error {
 			StdIn:     cfg.StdIn,
 			Offset:    offset,
 			BatchSize: limit,
+
+			Retry: cfg.Retry,
 
 			Shell:     cfg.Shell,
 			ShellArgs: cfg.ShellArgs,

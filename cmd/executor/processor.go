@@ -13,44 +13,48 @@ import (
 	"go.uber.org/zap"
 )
 
-// ExecRequest represents a request to execute a command with specific parameters.
-// It contains configuration options for the execution environment, command details,
-// and logging preferences.
+// ExecRequest encapsulates the parameters required to execute a command. It defines
+// configuration options for the execution environment, details about the command to
+// run, and logging configuration preferences.
 //
 // Fields:
-// - rootCtx: The root context for the execution, used for cancellation and deadlines.
-// - Command: The command to be executed.
-// - Offset: The starting offset for processing, if applicable.
-// - BatchSize: The size of the batch to process, if applicable.
-// - Shell: The shell to use for executing the command.
-// - ShellArgs: Additional arguments to pass to the shell.
-// - WorkingDirectory: The directory in which the command should be executed.
-// - Timeout: The maximum duration allowed for the command execution.
-// - logRoot: The root directory for storing logs.
-// - logToErr: A flag indicating whether logs should also be written to stderr.
+// - rootCtx: A base context used for managing cancellation and timeouts.
+// - Command: The command string that will be executed.
+// - StdIn: Input data to pass to the command via stdin.
+// - Offset: Initial offset for processing (e.g., for batch operations).
+// - BatchSize: Number of items to process in a batch (if applicable).
+// - Shell: The shell program to use for command execution.
+// - ShellArgs: Additional arguments to provide to the shell.
+// - WorkingDirectory: The directory where the command will be executed.
+// - Timeout: The maximum duration allowed for command execution before timing out.
+// - Retry: The number of times to retry execution in case of failure.
+// - TryCount: Tracks the number of retry attempts made so far.
+// - logRoot: Path to the root directory where logs should be saved.
+// - logToErr: Indicator of whether logs should also be directed to stderr.
 type ExecRequest struct {
-	rootCtx context.Context
-
-	Command   string
-	StdIn     string
-	Offset    int
-	BatchSize int
-
+	rootCtx          context.Context
+	Command          string
+	StdIn            string
+	Offset           int
+	BatchSize        int
 	Shell            string
 	ShellArgs        []string
 	WorkingDirectory string
-
-	Timeout  time.Duration
-	logRoot  string
-	logToErr bool
+	Timeout          time.Duration
+	Retry            uint
+	TryCount         uint
+	logRoot          string
+	logToErr         bool
 }
 
 // getVarMap to be used in template engine.
 func (e *ExecRequest) getVarMap() map[string]any {
 	return map[string]any{
-		"offset":    e.Offset,
-		"batchSize": e.BatchSize,
-		"limit":     e.Offset + e.BatchSize,
+		"offset":      e.Offset,
+		"batchSize":   e.BatchSize,
+		"limit":       e.Offset + e.BatchSize,
+		"tryCount":    e.TryCount,
+		"maxTryCount": e.Retry,
 	}
 }
 
@@ -77,12 +81,18 @@ func (e *ExecRequest) getVarMap() map[string]any {
 func processor(wg *sync.WaitGroup, requests <-chan *ExecRequest) {
 	log := logger.Get("Processor")
 	for r := range requests {
-		process(log, r, wg)
+		for r.TryCount <= r.Retry {
+			if err := process(log, r); err != nil {
+				r.TryCount++
+			} else {
+				break
+			}
+		}
+		wg.Done()
 	}
 }
 
-func process(log *zap.Logger, r *ExecRequest, wg *sync.WaitGroup) {
-	defer wg.Done()
+func process(log *zap.Logger, r *ExecRequest) error {
 	rLog := log.With(
 		zap.Any("request", r),
 	)
@@ -91,7 +101,7 @@ func process(log *zap.Logger, r *ExecRequest, wg *sync.WaitGroup) {
 
 	name, args, stdin, out, err := prepareArgs(rLog, r)
 	if err != nil {
-		return
+		return err
 	}
 	ctx, cancel := context.WithTimeout(r.rootCtx, r.Timeout)
 	defer cancel()
@@ -112,19 +122,20 @@ func process(log *zap.Logger, r *ExecRequest, wg *sync.WaitGroup) {
 		stdin,
 		out,
 	)
-
 	if err != nil {
 		rLog.Error(
 			"process execution failed",
 			zap.Error(err),
 			zap.String("process_name", name),
 		)
-	} else {
-		rLog.Info(
-			"process execution completed successfully",
-			zap.String("process_name", name),
-		)
+		return err
 	}
+
+	rLog.Info(
+		"process execution completed successfully",
+		zap.String("process_name", name),
+	)
+	return nil
 }
 
 func prepareArgs(rLog *zap.Logger, r *ExecRequest) (string, []string, string, io.Writer, error) {

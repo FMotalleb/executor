@@ -21,6 +21,7 @@ type Config struct {
 
 	Timeout  time.Duration
 	Parallel int
+	Retry    uint
 
 	LogDir      string
 	LogToStdErr bool

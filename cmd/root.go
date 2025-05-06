@@ -69,20 +69,6 @@ func init() {
 		panic(fmt.Errorf("failed to get current working directory: %w", err))
 	}
 
-	rootCmd.Flags().StringVar(
-		&cfg.Shell,
-		"shell",
-		"/bin/sh",
-		"Shell to use for executing commands",
-	)
-
-	rootCmd.Flags().StringSliceVar(
-		&cfg.ShellArgs,
-		"shell-args",
-		[]string{"-c"},
-		"Arguments to pass to the shell",
-	)
-
 	rootCmd.Flags().StringVarP(
 		&cfg.Command,
 		"command",
@@ -135,12 +121,34 @@ func init() {
 		"Timeout for each command execution",
 	)
 
+	rootCmd.Flags().UintVarP(
+		&cfg.Retry,
+		"retry",
+		"r",
+		0,
+		"How many times to retry a non-zero exit code command",
+	)
+
 	rootCmd.Flags().IntVarP(
 		&cfg.Parallel,
 		"processors",
 		"p",
 		defaultWorkerCount,
 		"Number of parallel executions",
+	)
+
+	rootCmd.Flags().StringVar(
+		&cfg.Shell,
+		"shell",
+		"/bin/sh",
+		"Shell to use for executing commands",
+	)
+
+	rootCmd.Flags().StringSliceVar(
+		&cfg.ShellArgs,
+		"shell-args",
+		[]string{"-c"},
+		"Arguments to pass to the shell",
 	)
 
 	rootCmd.Flags().StringVar(&cfg.LogDir, "log-dir", wd, "Directory to store logs")
